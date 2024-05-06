@@ -122,8 +122,6 @@ DashboardWidget::DashboardWidget(HemisGUI* parent) :
     setCssProperty(ui->chartContainer, "container-chart");
     setCssProperty(ui->pushImgEmptyChart, "img-empty-staking-on");
 
-    setCssBtnSecondary(ui->btnHowTo);
-
     setCssProperty(ui->labelEmptyChart, "text-empty");
     setCssSubtitleScreen(ui->labelMessageEmpty);
 
@@ -204,7 +202,6 @@ void DashboardWidget::loadWalletModel()
         }
 
         connect(ui->pushImgEmpty, &QPushButton::clicked, [this](){window->openFAQ();});
-        connect(ui->btnHowTo, &QPushButton::clicked, [this](){window->openFAQ();});
         connect(txModel, &TransactionTableModel::txArrived, this, &DashboardWidget::onTxArrived);
 
         // Notification pop-up for new transaction
@@ -440,6 +437,8 @@ void DashboardWidget::initChart()
     chart->addAxis(axisX, Qt::AlignBottom);
     chart->addAxis(axisY, Qt::AlignRight);
     chart->setAnimationOptions(QChart::SeriesAnimations);
+    axisX->setLabelsColor(Qt::white);
+    axisY->setLabelsColor(Qt::white);
 
     chartView = new QChartView(chart);
     chartView->setRenderHint(QPainter::Antialiasing);
@@ -461,10 +460,10 @@ void DashboardWidget::changeChartColors()
     QColor backgroundColor;
     QColor gridY;
     if (isLightTheme()) {
-        gridLineColorX = QColor(255,255,255);
+        gridLineColorX = QColor(16,16,17);
         linePenColorY = gridLineColorX;
         backgroundColor = linePenColorY;
-        axisY->setGridLineColor(QColor("#1a000000"));
+        axisY->setGridLineColor(QColor("#ffffff"));
     } else {
         gridY = QColor("#40ffffff");
         axisY->setGridLineColor(gridY);

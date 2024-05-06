@@ -1920,7 +1920,7 @@ QPushButton[cssClass="btn-chart-arrow"]:hover {
 }
 
 QPushButton[cssClass="btn-chart-arrow"]:pressed {
-    background-color:#20192e;
+    background-color:#636266;
 }
 
 QPushButton[cssClass="btn-chart-arrow-right"] {
@@ -1936,7 +1936,7 @@ QPushButton[cssClass="btn-chart-arrow-right"]:hover {
 }
 
 QPushButton[cssClass="btn-chart-arrow-right"]:pressed {
-    background-color:#20192e;
+    background-color:#636266;
 }
 
 QComboBox[cssClass="btn-combo-secundary"] {
@@ -2039,7 +2039,7 @@ QPushButton[cssClass="btn-check-time"]:hover {
 }
 
 QPushButton[cssClass="btn-check-time"]:pressed {
-    background-color:#20192e;
+    background-color:#636266;
     border-radius:2px;
     font-size:14px;
     padding:4px;
@@ -2892,29 +2892,6 @@ HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH*/
     border:  1px solid #bababa;
     border-radius: 2px;
 }
-
-
-/**[cssClass="coin-icon-piv"] {
-    qproperty-icon: url("://ic-coin-piv") off,
-    url("://ic-coin-piv") on ;
-    qproperty-iconSize: 24px 24px;
-    background-color: #FFFFFF;
-    border:  2px solid #101011;
-    border-radius: 12px;
-}*/
-
-/**[cssClass="coin-icon-zpiv"] {
-    qproperty-icon: url("://ic-coin-zpiv") off,
-    url("://ic-coin-zpiv") on ;
-    qproperty-iconSize: 24px 24px;
-    background-position:center;
-    background-repeat:no-repeat;
-    background-color: #FFFFFF;
-    border:  2px solid #101011;
-    border-radius: 12px;
-}*/
-
-
 
 /*HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH
 HH      Dialog
