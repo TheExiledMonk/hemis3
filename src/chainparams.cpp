@@ -164,13 +164,14 @@ static Consensus::LLMQParams llmq400_85 = {
  */
 static MapCheckpoints mapCheckpoints = {
 {0, uint256S   ("0x000000956c582b70df5d2c9b4b83d05b5331978e40d639739bdc96c29e156ce7")},
-{9500, uint256S("0xa69189f2e1fd4ba82d177710158cae3e8aaad2b52993e63628a8d7120840577b")}
+{9500, uint256S("0xa69189f2e1fd4ba82d177710158cae3e8aaad2b52993e63628a8d7120840577b")},
+{276055, uint256S("0xca1660689e66c0cc5cce36abeb92b4209bc0978ec11c8ca4f339dec9dbfab8e4")}
 };
 
 static const CCheckpointData data = {
     &mapCheckpoints,
-    1705904820, // * UNIX timestamp of last checkpoint block
-    20909,      // * total number of transactions between genesis and last checkpoint
+    1722614175, // * UNIX timestamp of last checkpoint block
+    565159,      // * total number of transactions between genesis and last checkpoint
                 //   (the tx=... number in the UpdateTip debug.log lines)
     100         // * estimated number of transactions per day after checkpoint
 };
@@ -275,7 +276,7 @@ public:
         consensus.nMaxMoneyOut = 30000000 * COIN;
         consensus.nGMCollateralAmt = 1000 * COIN;
         consensus.nGMBlockReward = 0.775 * COIN;
-        consensus.nNewGMBlockReward = 1 * COIN;
+        consensus.nNewGMBlockReward = 2.9424999945 * COIN;
         consensus.nGMCollateralMinConf = 15;
         consensus.nProposalEstablishmentTime = 60 * 60 * 24;    // must be at least a day old to make it into a budget
         consensus.nStakeMinAge = 60 * 60;
@@ -358,8 +359,8 @@ public:
         nDefaultPort = 49165;
 
         // Note that of those with the service bits flag, most only support a subset of possible options
-        vSeeds.emplace_back("hmsdns.Hemis.tech", true);
-	vSeeds.emplace_back("hemis.hypur.xyz", true);     // Primary DNS Seeder from Fuzzbawls
+        vSeeds.emplace_back("seed.Hemis.tech", true);
+	    vSeeds.emplace_back("vps.hemis.tech", true);     // Primary DNS Seeder from Fuzzbawls
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, 40);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, 13);
@@ -443,7 +444,7 @@ public:
         consensus.nMaxMoneyOut = 30000000 * COIN;
         consensus.nGMCollateralAmt = 1000 * COIN;
         consensus.nGMBlockReward = 0.775 * COIN;
-        consensus.nNewGMBlockReward = 1 * COIN;
+        consensus.nNewGMBlockReward = 2.9424999945 * COIN;
         consensus.nGMCollateralMinConf = 15;
         consensus.nProposalEstablishmentTime = 60 * 60 * 24;    // must be at least a day old to make it into a budget
         consensus.nStakeMinAge = 60 * 60;
@@ -455,7 +456,7 @@ public:
         consensus.nMaxProposalPayments = 6;
 
         // spork keys
-        consensus.strSporkPubKey = "0489BF9B08FE8F2A971390A0C1A05F5B1C8A4F4F2ECF5413622CA8B21E296520A82431AFB5A6A7D788335EBB021301806D9653EFADB3AE132CBF507F58942F1BF4";
+        consensus.strSporkPubKey = "047F4B276E7852D6FC9AE1869B758C479759FD8CD0DC0E760EAE370161E0A75076E2CB12FE351431BA2ECAEF749FDADE63F18C0BB9BD5A0B7183C223724D9CDB48";
 
         // height-based activations
         consensus.height_last_invalid_UTXO = 1;

@@ -29,10 +29,48 @@
 #include "wallet/wallet.h"
 #include "wallet/walletdb.h"
 #include "wallet/walletutil.h"
+#include "bip39.cpp"
+#include "bip32.cpp"
+#include "base58.h"
+#include "wallet/wallet.h"
+#include "key_io.h"
+#include "script/script.h"
+#include "simpleroi.h"
 
 #include <stdint.h>
 #include <univalue.h>
 
+UniValue getroi(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() > 0) {
+        int nRoiMinutes = Params().GetConsensus().nTargetTimespan;     // defalut if no Tip()
+        CSimpRoiArgs csra;
+        CBlockIndex * pb = chainActive.Tip();
+        if (pb && pb->nHeight) {
+            nRoiMinutes = Params().GetConsensus().TargetTimespan(pb->nHeight);
+        }
+        std::string sTopline = strprintf("  \"%d hour avg ROI: nnnn.n%%\",           smoothed staking ROI\n", csra.nStakeRoiHrs);
+        std::string sLine2   = strprintf("  \"%2d min stk ROI: nnnn.n%%\",           real time staking ROI\n", nRoiMinutes / 60);
+            throw std::runtime_error(
+                "getroi\n" +
+                sTopline +
+                sLine2 +
+                "  \"tot stake coin: nnnnnnnn\",          estimate of total staked coins\n"
+                "\n"
+                "  \"masternode ROI: nnnn.n%\",           masternode ROI\n"
+                "  \"tot collateral: nnnnnnnn\",          total masternode collateral\n"
+                "  \"enabled  nodes: nnnn\",              number of enabled masternodes\n"
+                "  \"blocks per day: nnnn.n\",            number of blocks per day\n"
+                "\n"
+            );
+    }
+    CSimpleRoi csimproi;
+    UniValue roi(UniValue::VOBJ);
+    std::string sGerror;
+
+    if (csimproi.generateROI(roi, sGerror)) return roi;
+    throw std::runtime_error(sGerror);
+}
 
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
 
@@ -67,6 +105,205 @@ bool EnsureWalletIsAvailable(CWallet* const pwallet, bool avoidException)
     throw JSONRPCError(RPC_WALLET_NOT_SPECIFIED,
         "Wallet file not specified (must request wallet RPC through /wallet/<filename> uri-path).");
 }
+
+/*
+UniValue bip39ToBip32(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+        throw std::runtime_error(
+            "bip39tobip32 \"mnemonic\" ( passphrase )\n"
+            "\nConverts a BIP39 mnemonic seed to a BIP32 extended master private key.\n"
+            "\nArguments:\n"
+            "1. \"mnemonic\"       (string, required) The BIP39 mnemonic seed\n"
+            "2. \"passphrase\"     (string, optional) Optional passphrase for seed derivation\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"extended_master_private_key\": \"...\", (string) The BIP32 extended master private key\n"
+            "  \"extended_master_public_key\": \"...\",  (string) The BIP32 extended master public key\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("bip39tobip32", "\"your mnemonic seed\" \"your passphrase\"")
+            + HelpExampleRpc("bip39tobip32", "\"your mnemonic seed\", \"your passphrase\"")
+        );
+
+    std::string mnemonic = request.params[0].get_str();
+    std::string passphrase = (request.params.size() > 1) ? request.params[1].get_str() : "";
+
+    // Generate BIP39 seed from mnemonic and passphrase
+    std::vector<unsigned char> seed = mnemonicToSeed(mnemonic, passphrase);
+
+    // Generate BIP32 extended master private key
+    CExtKey masterKey;
+    masterKey.SetSeed(seed.data(), seed.size());
+
+    // Generate BIP32 extended master public key
+    CExtPubKey masterPubKey = masterKey.Neuter();
+
+    unsigned char extKey[BIP32_EXTKEY_SIZE];
+    masterKey.Encode(extKey);
+    std::string extPrivKey = EncodeBase58(extKey, extKey + BIP32_EXTKEY_SIZE);
+
+    masterPubKey.Encode(extKey);
+    std::string extPubKey = EncodeBase58(extKey, extKey + BIP32_EXTKEY_SIZE);
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("extended_master_private_key", extPrivKey);
+    result.pushKV("extended_master_public_key", extPubKey);
+
+    // Optional: Import the extended master private key into the wallet
+    CWallet* const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!pwallet) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Cannot access wallet");
+    }
+
+    if (!pwallet->HaveKey(masterKey.key.GetPubKey().GetID())) {
+        pwallet->AddKey(masterKey.key);
+        result.pushKV("imported_to_wallet", true);
+    } else {
+        result.pushKV("imported_to_wallet", false);
+    }
+
+    return result;
+}
+*/
+UniValue bip39ToBip32(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2)
+        throw std::runtime_error(
+            "bip39tobip32 \"mnemonic\" ( \"passphrase\" )\n"
+            "\nConverts a BIP39 mnemonic to a BIP32 extended master private key and sets it as the HD seed.\n"
+            "\nArguments:\n"
+            "1. \"mnemonic\"       (string, required) The BIP39 mnemonic\n"
+            "2. \"passphrase\"     (string, optional) Optional passphrase\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"extended_master_private_key\": \"...\", (string) The BIP32 extended master private key\n"
+            "  \"extended_master_public_key\": \"...\", (string) The BIP32 extended master public key\n"
+            "  \"new_seed\": \"...\", (string) The new HD seed set in the wallet\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("bip39tobip32", "\"your mnemonic seed\"")
+            + HelpExampleRpc("bip39tobip32", "\"your mnemonic seed\"")
+        );
+
+    std::string mnemonic = request.params[0].get_str();
+    std::string passphrase = request.params.size() > 1 ? request.params[1].get_str() : "";
+
+    // Generate the seed from the mnemonic and passphrase
+    std::vector<unsigned char> seed = mnemonicToSeed(mnemonic, passphrase);
+
+    // Convert to a CExtKey
+    CExtKey masterKey;
+    masterKey.SetSeed(seed.data(), seed.size());
+
+    // Convert the master key to a WIF key
+    CKey key = masterKey.key;
+    std::string wifKey = KeyIO::EncodeSecret(key);
+
+    // Set the new HD seed in the wallet
+    CWallet* const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!pwallet) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Cannot access wallet");
+    }
+
+    EnsureWalletIsUnlocked(pwallet);
+
+    LOCK2(cs_main, pwallet->cs_wallet);
+
+    pwallet->MarkDirty();
+
+    CPubKey pubkey = key.GetPubKey();
+    assert(key.VerifyPubKey(pubkey));
+    CKeyID vchAddress = pubkey.GetID();
+
+    pwallet->SetAddressBook(vchAddress, "HD Seed", AddressBook::AddressBookPurpose::RECEIVE);
+
+    if (!pwallet->HaveKey(vchAddress)) {
+        pwallet->UpdateTimeFirstKey(1);
+        pwallet->mapKeyMetadata[vchAddress].nCreateTime = 1;
+
+        if (!pwallet->AddKeyPubKey(key, pubkey)) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Error adding key to wallet");
+        }
+    }
+
+    ScriptPubKeyMan* spk_man = pwallet->GetScriptPubKeyMan();
+    spk_man->SetHDSeed(pubkey, true);
+    spk_man->NewKeyPool();
+
+    // Update Sapling chain if necessary
+    SaplingScriptPubKeyMan* sspk_man = pwallet->CanSupportFeature(FEATURE_SAPLING) ?
+                                       pwallet->GetSaplingScriptPubKeyMan() : nullptr;
+    if (sspk_man) {
+        sspk_man->SetHDSeed(pubkey, true);
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("mnemonic", mnemonic);
+    result.pushKV("seed", HexStr(seed));
+    result.pushKV("new_seed", wifKey);
+
+    return result;
+}
+/*
+UniValue bip39GenerateMnemonic(const JSONRPCRequest& request)
+{
+    int wordCount = 12;
+    if (request.params.size() > 0) {
+        wordCount = request.params[0].get_int();
+    }
+
+    std::string mnemonic = generateMnemonic(wordCount);
+    
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("mnemonic", mnemonic);
+
+    return result;
+}
+*/
+UniValue bip39GenerateMnemonic(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() > 1)
+        throw std::runtime_error(
+            "bip39generate (\"number_of_words\")\n"
+            "\nGenerates a BIP39 mnemonic and corresponding seed.\n"
+            "\nArguments:\n"
+            "1. \"number_of_words\" (number, optional, default=12) The number of words in the mnemonic (12, 15, 18, 21, or 24)\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"mnemonic\": \"...\", (string) The generated BIP39 mnemonic\n"
+            "  \"seed\": \"...\" (string) The corresponding seed\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("bip39generate", "12")
+            + HelpExampleRpc("bip39generate", "12")
+        );
+
+    int wordCount = 12;  // Default to 12 words
+
+    if (!request.params[0].isNull()) {
+        if (request.params[0].isNum()) {
+            wordCount = request.params[0].get_int();
+        } else {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid number_of_words parameter; must be an integer.");
+        }
+    }
+
+    if (wordCount != 12 && wordCount != 15 && wordCount != 18 && wordCount != 21 && wordCount != 24) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid number_of_words; must be one of 12, 15, 18, 21, or 24.");
+    }
+
+    std::string mnemonic = generateMnemonic(wordCount);
+    std::vector<unsigned char> seed = mnemonicToSeed(mnemonic, "");
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("mnemonic", mnemonic);
+    result.pushKV("seed", HexStr(seed));
+
+    return result;
+}
+
+
 
 void EnsureWalletIsUnlocked(CWallet* const pwallet, bool fAllowAnonOnly)
 {
@@ -4788,21 +5025,24 @@ static const CRPCCommand commands[] =
     { "wallet",             "delegatorremove",          &delegatorremove,          true,  {"address"} },
     { "wallet",             "bip38encrypt",             &bip38encrypt,             true,  {"address","passphrase"} },
     { "wallet",             "bip38decrypt",             &bip38decrypt,             true,  {"encrypted_key","passphrase"} },
+    { "wallet",             "bip39tobip32",             &bip39ToBip32,             true,  {"mnemonic", "passphrase", "import"} },
+    { "wallet",             "bip39generate",             &bip39GenerateMnemonic,   true,  {"number_of_words"} },
+    { "wallet",             "getroi",                   &getroi,                   false, {} },
 
     /** Sapling functions */
-    { "wallet",             "getnewshieldaddress",           &getnewshieldaddress,            true,  {"label"} },
-    { "wallet",             "listshieldaddresses",           &listshieldaddresses,            false, {"include_watchonly"} },
-    { "wallet",             "exportsaplingkey",              &exportsaplingkey,               true,  {"shield_addr"} },
-    { "wallet",             "importsaplingkey",              &importsaplingkey,               true,  {"key","rescan","height"} },
-    { "wallet",             "importsaplingviewingkey",       &importsaplingviewingkey,        true,  {"vkey","rescan","height"}  },
-    { "wallet",             "exportsaplingviewingkey",       &exportsaplingviewingkey,        true,  {"shield_addr"} },
-    { "wallet",             "getshieldbalance",              &getshieldbalance,               false, {"address","minconf","include_watchonly"} },
-    { "wallet",             "listshieldunspent",             &listshieldunspent,              false, {"minconf","maxconf","include_watchonly","addresses"} },
-    { "wallet",             "rawshieldsendmany",             &rawshieldsendmany,              false, {"fromaddress","amounts","minconf","fee"} },
-    { "wallet",             "shieldsendmany",                &shieldsendmany,                 false, {"fromaddress","amounts","minconf","fee","subtract_fee_from"} },
-    { "wallet",             "listreceivedbyshieldaddress",   &listreceivedbyshieldaddress,    false, {"address","minconf"} },
-    { "wallet",             "viewshieldtransaction",         &viewshieldtransaction,          false, {"txid"} },
-    { "wallet",             "getsaplingnotescount",          &getsaplingnotescount,           false, {"minconf"} },
+    { "hidden",             "getnewshieldaddress",           &getnewshieldaddress,            true,  {"label"} },
+    { "hidden",             "listshieldaddresses",           &listshieldaddresses,            false, {"include_watchonly"} },
+    { "hidden",             "exportsaplingkey",              &exportsaplingkey,               true,  {"shield_addr"} },
+    { "hidden",             "importsaplingkey",              &importsaplingkey,               true,  {"key","rescan","height"} },
+    { "hidden",             "importsaplingviewingkey",       &importsaplingviewingkey,        true,  {"vkey","rescan","height"}  },
+    { "hidden",             "exportsaplingviewingkey",       &exportsaplingviewingkey,        true,  {"shield_addr"} },
+    { "hidden",             "getshieldbalance",              &getshieldbalance,               false, {"address","minconf","include_watchonly"} },
+    { "hidden",             "listshieldunspent",             &listshieldunspent,              false, {"minconf","maxconf","include_watchonly","addresses"} },
+    { "hidden",             "rawshieldsendmany",             &rawshieldsendmany,              false, {"fromaddress","amounts","minconf","fee"} },
+    { "hidden",             "shieldsendmany",                &shieldsendmany,                 false, {"fromaddress","amounts","minconf","fee","subtract_fee_from"} },
+    { "hidden",             "listreceivedbyshieldaddress",   &listreceivedbyshieldaddress,    false, {"address","minconf"} },
+    { "hidden",             "viewshieldtransaction",         &viewshieldtransaction,          false, {"txid"} },
+    { "hidden",             "getsaplingnotescount",          &getsaplingnotescount,           false, {"minconf"} },
 
     /** Label functions (to replace non-balance account functions) */
     { "wallet",             "getaddressesbylabel",      &getaddressesbylabel,      true,  {"label"} },
